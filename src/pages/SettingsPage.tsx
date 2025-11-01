@@ -77,7 +77,8 @@ export const SettingsPage = () => {
                         <Input id="powerLimitWatts" type="number"
                                value={formData.powerLimitWatts}
                                onChange={(e) => handleChange('powerLimitWatts', e.target.value)}
-                               required/>
+                               required
+                               min="0"/>
                         <p className="text-sm text-muted-foreground">
                             Total power limit for the system (e.g., your main breaker limit).
                         </p>
@@ -87,7 +88,8 @@ export const SettingsPage = () => {
                         <Input id="powerOnMarginWatts" type="number"
                                value={formData.powerOnMarginWatts}
                                onChange={(e) => handleChange('powerOnMarginWatts', e.target.value)}
-                               required/>
+                               required
+                               min="0"/>
                         <p className="text-sm text-muted-foreground">
                             Available power needed to turn a device on.
                         </p>
@@ -97,7 +99,8 @@ export const SettingsPage = () => {
                         <Input id="overloadCooldownSeconds" type="number"
                                value={formData.overloadCooldownSeconds}
                                onChange={(e) => handleChange('overloadCooldownSeconds', e.target.value)}
-                               required/>
+                               required
+                               min="0"/>
                         <p className="text-sm text-muted-foreground">
                             Time to wait after an overload before turning devices back on.
                         </p>

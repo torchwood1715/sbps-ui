@@ -153,8 +153,10 @@ export const DeviceSettingsPage = () => {
                         >
                             <SelectTrigger id="type"><SelectValue/></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="POWER_MONITOR" disabled={hasMonitor && formData.deviceType !== 'POWER_MONITOR'}>
-                                    Power Monitor {hasMonitor && formData.deviceType !== 'POWER_MONITOR' && "(Already exists)"}
+                                <SelectItem value="POWER_MONITOR"
+                                            disabled={hasMonitor && formData.deviceType !== 'POWER_MONITOR'}>
+                                    Power
+                                    Monitor {hasMonitor && formData.deviceType !== 'POWER_MONITOR' && "(Already exists)"}
                                 </SelectItem>
                                 <SelectItem value="SWITCHABLE_APPLIANCE">Switchable Appliance</SelectItem>
                             </SelectContent>
@@ -171,7 +173,27 @@ export const DeviceSettingsPage = () => {
                             value={isMonitor ? 0 : formData.wattage}
                             onChange={(e) => handleChange('wattage', Number(e.target.value))}
                             disabled={isMonitor}
+                            min="0"
                         />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="priority" className={isMonitor ? "text-muted-foreground" : ""}>
+                            Priority (0=High, 10=Low)
+                        </Label>
+                        <Input
+                            id="priority"
+                            type="number"
+                            value={isMonitor ? 0 : formData.priority}
+                            onChange={(e) => handleChange('priority', Number(e.target.value))}
+                            disabled={isMonitor}
+                            min="0"
+                            max="10"
+                            step="1"
+                        />
+                        <p className="text-sm text-muted-foreground">
+                            Devices with higher priority will be turned off last.
+                        </p>
                     </div>
 
                     <div className="flex items-center space-x-2">
