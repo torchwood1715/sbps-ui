@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {useAuth} from '../hooks/useAuth';
 import apiClient from '../api/apiClient';
 import {useNavigate} from 'react-router-dom';
@@ -9,14 +9,8 @@ import {Badge} from "@/components/ui/badge";
 import {Switch} from "@/components/ui/switch";
 import {PlusCircle} from 'lucide-react';
 import {AxiosError} from "axios";
-
-interface DeviceStatus {
-    output: boolean;
-    apower: number;
-    voltage: number;
-    current: number;
-    temperature: { tC: number, tF: number };
-}
+import {Client} from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 
 interface Device {
     id: number;
@@ -33,6 +27,36 @@ interface Device {
     temperature?: number;
 }
 
+interface DeviceStatusUpdate {
+    deviceId: number;
+    username: string;
+    isOnline?: boolean;
+    statusJson?: DeviceStatus;
+}
+
+interface DeviceStatus {
+    id: number;
+    source: string;
+    output: boolean;
+    apower: number;
+    voltage: number;
+    current: number;
+    aenergy: {
+        total: number;
+        by_minute: number[];
+        minute_ts: number;
+    };
+    temperature: { tC: number, tF: number };
+}
+
+interface DeviceOfflineStatus {
+    online: false;
+}
+
+type DeviceStatusData = DeviceStatus | DeviceOfflineStatus;
+type AllStatusesResponse = Record<string, DeviceStatusData>;
+
+
 export const DashboardPage = () => {
     const {user, logout} = useAuth();
     const navigate = useNavigate();
@@ -42,11 +66,42 @@ export const DashboardPage = () => {
 
     const hasMonitor = devices.some(d => d.deviceType === 'POWER_MONITOR');
 
-    const fetchDevices = async () => {
+    const updateDeviceState = (update: DeviceStatusUpdate) => {
+        setDevices(prevDevices =>
+            prevDevices.map(device => {
+                if (device.id === update.deviceId) {
+                    const updatedDevice = {...device};
+
+                    if (update.isOnline !== undefined) {
+                        updatedDevice.isOnline = update.isOnline;
+                        if (!update.isOnline) {
+                            updatedDevice.isOn = false;
+                            updatedDevice.currentPower = 0;
+                            updatedDevice.voltage = 0;
+                            updatedDevice.temperature = 0;
+                        }
+                    }
+
+                    if (update.statusJson) {
+                        updatedDevice.isOnline = true;
+                        updatedDevice.isOn = update.statusJson.output ?? false;
+                        updatedDevice.currentPower = update.statusJson.apower ?? 0;
+                        updatedDevice.voltage = update.statusJson.voltage ?? 0;
+                        updatedDevice.temperature = update.statusJson.temperature?.tC ?? 0;
+                    }
+
+                    return updatedDevice;
+                }
+                return device;
+            })
+        );
+    };
+
+    const fetchDevices = useCallback(async () => {
         setLoadingDevices(true);
         setDeviceError(null);
         try {
-            const listResponse = await apiClient.get<Device[]>('/devices');
+            const listResponse = await apiClient.get<Device[]>('/api/devices');
             const baseDevices = listResponse.data;
 
             if (baseDevices.length === 0) {
@@ -54,33 +109,13 @@ export const DashboardPage = () => {
                 return;
             }
 
-            const statusPromises = baseDevices.map(async (device) => {
-                try {
-                    const onlineResponse = await apiClient.get<boolean>(`/api/control/plug/${device.id}/online`);
-                    const isOnline = onlineResponse.data;
-                    if (!isOnline) {
-                        return {
-                            ...device,
-                            isOnline: false,
-                            isOn: false,
-                            currentPower: 0,
-                            voltage: 0,
-                            temperature: 0,
-                        };
-                    }
-                    const statusResponse = await apiClient.get<DeviceStatus>(`/api/control/plug/${device.id}/status`);
-                    const status = statusResponse.data;
+            const statusesResponse = await apiClient.get<AllStatusesResponse>('/api/control/all-statuses');
+            const statuses = statusesResponse.data;
 
-                    return {
-                        ...device,
-                        isOnline: true,
-                        isOn: status?.output ?? false,
-                        currentPower: status?.apower ?? 0,
-                        voltage: status?.voltage ?? 0,
-                        temperature: status?.temperature?.tC ?? 0,
-                    };
-                } catch (err) {
-                    console.error(`Failed to fetch status for device ${device.id}`, err);
+            const devicesWithStatus = baseDevices.map(device => {
+                const status = statuses[device.id];
+
+                if (status && 'online' in status && status.online === false) {
                     return {
                         ...device,
                         isOnline: false,
@@ -90,8 +125,18 @@ export const DashboardPage = () => {
                         temperature: 0,
                     };
                 }
+
+                const fullStatus = status as DeviceStatus;
+                return {
+                    ...device,
+                    isOnline: !!fullStatus,
+                    isOn: fullStatus?.output ?? false,
+                    currentPower: fullStatus?.apower ?? 0,
+                    voltage: fullStatus?.voltage ?? 0,
+                    temperature: fullStatus?.temperature?.tC ?? 0,
+                };
             });
-            const devicesWithStatus = await Promise.all(statusPromises);
+
             setDevices(devicesWithStatus);
         } catch (err) {
             console.error('Failed to fetch devices:', err);
@@ -102,12 +147,60 @@ export const DashboardPage = () => {
         } finally {
             setLoadingDevices(false);
         }
-    };
+    }, [logout]);
 
     useEffect(() => {
-        fetchDevices();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        fetchDevices().catch(console.error);
+    }, [fetchDevices]);
+
+    useEffect(() => {
+        if (!user?.username) return;
+
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const client = new Client({
+            webSocketFactory: () => {
+                return new SockJS(`${import.meta.env.VITE_API_BASE_URL}/ws`);
+            },
+            connectHeaders: {
+                "Authorization": `Bearer ${token}`,
+            },
+            debug: (str) => {
+                console.log('STOMP: ' + str);
+            },
+            reconnectDelay: 5000,
+            heartbeatIncoming: 4000,
+            heartbeatOutgoing: 4000,
+        });
+
+        client.onConnect = (frame) => {
+            console.log('Connected via WebSocket: ' + frame);
+            client.subscribe(`/topic/status/${user.username}`, (message) => {
+                try {
+                    const update = JSON.parse(message.body) as DeviceStatusUpdate;
+                    console.log("Received WS update:", update);
+                    updateDeviceState(update);
+                } catch (e) {
+                    console.error("Failed to parse WS message", e);
+                }
+            });
+        };
+
+        client.onStompError = (frame) => {
+            console.error('Broker reported error: ' + frame.headers['message']);
+            console.error('Additional details: ' + frame.body);
+        };
+
+        client.activate();
+
+        return () => {
+            if (client) {
+                void client.deactivate();
+                console.log("WebSocket disconnected");
+            }
+        };
+    }, [user]);
 
     const handleToggle = async (deviceId: number, currentState: boolean) => {
         const newState = !currentState;
@@ -119,25 +212,13 @@ export const DashboardPage = () => {
 
         try {
             await apiClient.post(`/api/control/plug/${deviceId}/toggle?on=${newState}`);
-            await new Promise(resolve => setTimeout(resolve, 750));
-            const statusRes = await apiClient.get<DeviceStatus>(`/api/control/plug/${deviceId}/status`);
-            const status = statusRes.data;
-
-            setDevices(prevDevices =>
-                prevDevices.map(device =>
-                    device.id === deviceId ? {
-                        ...device,
-                        isOn: status?.output ?? newState,
-                        currentPower: status?.apower ?? 0,
-                        voltage: status?.voltage ?? 0,
-                        temperature: status?.temperature?.tC ?? 0,
-                    } : device
-                )
-            );
-
         } catch (error) {
             console.error("Failed to toggle device", error);
-            await fetchDevices();
+            setDevices(prevDevices =>
+                prevDevices.map(device =>
+                    device.id === deviceId ? {...device, isOn: currentState} : device
+                )
+            );
         }
     };
 

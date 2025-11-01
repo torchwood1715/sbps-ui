@@ -53,7 +53,7 @@ export const CreateDevicePage = () => {
         };
 
         try {
-            await apiClient.post('/devices', deviceData);
+            await apiClient.post('/api/devices', deviceData);
             navigate('/dashboard');
         } catch (error) {
             console.error("Failed to create device", error);

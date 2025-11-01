@@ -58,7 +58,7 @@ export const DeviceSettingsPage = () => {
             if (!deviceId) return;
             setIsLoading(true);
             try {
-                const response = await apiClient.get<DeviceResponseDTO>(`/devices/${deviceId}`);
+                const response = await apiClient.get<DeviceResponseDTO>(`/api/devices/${deviceId}`);
 
                 setFormData({
                     name: response.data.name,
@@ -100,7 +100,7 @@ export const DeviceSettingsPage = () => {
         };
 
         try {
-            await apiClient.put(`/devices/${deviceId}`, deviceData);
+            await apiClient.put(`/api/devices/${deviceId}`, deviceData);
             navigate('/dashboard');
         } catch (error) {
             console.error("Failed to save device", error);
