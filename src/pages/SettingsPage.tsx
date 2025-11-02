@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import apiClient from '../api/apiClient';
+import {isAxiosError} from 'axios';
 import {Input} from "../components/ui/input";
 import {Label} from "../components/ui/label";
 import {Button} from "../components/ui/button";
@@ -46,7 +47,18 @@ export const SettingsPage = () => {
             navigate('/dashboard');
         } catch (error) {
             console.error("Failed to save settings", error);
-            setError("Failed to save settings.");
+            let message = 'Failed to save settings.';
+            if (isAxiosError(error)) {
+                const serverMessage = (error.response?.data as any)?.message as string | undefined;
+                if (serverMessage && serverMessage.trim().length > 0) {
+                    message = serverMessage;
+                } else if (error.message) {
+                    message = error.message;
+                }
+            } else if (error instanceof Error) {
+                message = error.message || message;
+            }
+            setError(message);
         } finally {
             setIsSaving(false);
         }

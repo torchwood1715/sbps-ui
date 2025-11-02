@@ -8,10 +8,10 @@ import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} f
 import {Badge} from "@/components/ui/badge";
 import {Switch} from "@/components/ui/switch";
 import {PlusCircle} from 'lucide-react';
-import {AxiosError} from "axios";
+import {isAxiosError} from "axios";
 import {Client} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import type { Device, DeviceStatusUpdate, DeviceStatus, AllStatusesResponse } from '@/types/api.types';
+import type {AllStatusesResponse, Device, DeviceStatus, DeviceStatusUpdate} from '@/types/api.types';
 
 
 export const DashboardPage = () => {
@@ -97,10 +97,21 @@ export const DashboardPage = () => {
             setDevices(devicesWithStatus);
         } catch (err) {
             console.error('Failed to fetch devices:', err);
-            setDeviceError('Failed to load devices.');
-            if (err instanceof AxiosError && err.response?.status === 401) {
-                logout();
+            let message = 'Failed to load devices.';
+            if (isAxiosError(err)) {
+                const serverMessage = (err.response?.data as any)?.message as string | undefined;
+                if (serverMessage && serverMessage.trim().length > 0) {
+                    message = serverMessage;
+                } else if (err.message) {
+                    message = err.message;
+                }
+                if (err.response?.status === 401) {
+                    logout();
+                }
+            } else if (err instanceof Error) {
+                message = err.message || message;
             }
+            setDeviceError(message);
         } finally {
             setLoadingDevices(false);
         }
@@ -272,11 +283,16 @@ export const DashboardPage = () => {
 
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-semibold">My Devices</h2>
-                {devices.length > 0 && (
-                    <Button onClick={() => navigate('/device/create', {state: {hasMonitor}})}>
-                        <PlusCircle className="mr-2 h-4 w-4"/> Add Device
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => fetchDevices()} disabled={loadingDevices}>
+                        {loadingDevices ? 'Refreshing...' : 'Refresh'}
                     </Button>
-                )}
+                    {devices.length > 0 && (
+                        <Button onClick={() => navigate('/device/create', {state: {hasMonitor}})}>
+                            <PlusCircle className="mr-2 h-4 w-4"/> Add Device
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {loadingDevices && <p>Loading devices...</p>}

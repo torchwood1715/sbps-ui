@@ -54,13 +54,18 @@ export const AuthProvider = ({children}: { children: ReactNode }) => {
     const handleAuthError = (err: unknown) => {
         let errorMessage = 'An unknown error occurred.';
         if (isAxiosError(err)) {
-            if (err.response?.status === 400 || err.response?.status === 401) {
+            const serverMessage = (err.response?.data as any)?.message as string | undefined;
+            if (serverMessage && serverMessage.trim().length > 0) {
+                errorMessage = serverMessage;
+            } else if (err.response?.status === 400 || err.response?.status === 401) {
                 errorMessage = 'Invalid email or password.';
             } else if (err.response?.status === 409) {
                 errorMessage = 'User with this email already exists.';
-            } else {
+            } else if (err.message) {
                 errorMessage = err.message;
             }
+        } else if (err instanceof Error) {
+            errorMessage = err.message;
         }
         setError(errorMessage);
         console.error(err);

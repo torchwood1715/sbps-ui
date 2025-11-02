@@ -2,10 +2,11 @@ import React, {useState} from 'react';
 import {useLocation, useNavigate} from 'react-router-dom';
 import {useAuth} from '../hooks/useAuth';
 import apiClient from '../api/apiClient';
+import {isAxiosError} from 'axios';
 import {Card, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import DeviceForm from '@/components/DeviceForm';
-import type { DeviceFormData } from '@/types/forms.types';
+import type {DeviceFormData} from '@/types/forms.types';
 
 export const CreateDevicePage = () => {
     const {user} = useAuth();
@@ -13,6 +14,7 @@ export const CreateDevicePage = () => {
     const location = useLocation();
     const hasMonitor = location.state?.hasMonitor ?? false;
     const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState<DeviceFormData>({
         name: '',
         mqttSuffix: '',
@@ -54,6 +56,18 @@ export const CreateDevicePage = () => {
             navigate('/dashboard');
         } catch (error) {
             console.error("Failed to create device", error);
+            let message = 'Failed to create device.';
+            if (isAxiosError(error)) {
+                const serverMessage = (error.response?.data as any)?.message as string | undefined;
+                if (serverMessage && serverMessage.trim().length > 0) {
+                    message = serverMessage;
+                } else if (error.message) {
+                    message = error.message;
+                }
+            } else if (error instanceof Error) {
+                message = error.message || message;
+            }
+            setError(message);
         } finally {
             setIsSaving(false);
         }
@@ -74,6 +88,7 @@ export const CreateDevicePage = () => {
                         isMonitor={isMonitor}
                         hasMonitor={hasMonitor}
                     />
+                    {error && <p className="text-red-600 px-6 pt-2">{error}</p>}
                     <CardFooter className="flex justify-end gap-3">
                         <Button variant="outline" type="button" onClick={() => navigate('/dashboard')}>
                             Cancel

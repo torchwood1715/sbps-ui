@@ -1,12 +1,13 @@
 import {useEffect, useState} from 'react';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import apiClient from '../api/apiClient';
+import {isAxiosError} from 'axios';
 import {useAuth} from '../hooks/useAuth';
 import {Button} from "../components/ui/button";
 import {Card, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import DeviceForm from '@/components/DeviceForm';
-import type { DeviceRequestDTO, DeviceResponseDTO } from '@/types/api.types';
-import type { DeviceFormData } from '@/types/forms.types';
+import type {DeviceRequestDTO, DeviceResponseDTO} from '@/types/api.types';
+import type {DeviceFormData} from '@/types/forms.types';
 
 export const DeviceSettingsPage = () => {
     const {deviceId} = useParams<{ deviceId: string }>();
@@ -26,6 +27,7 @@ export const DeviceSettingsPage = () => {
     });
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [mqttSuffix, setMqttSuffix] = useState('');
 
     useEffect(() => {
@@ -89,6 +91,18 @@ export const DeviceSettingsPage = () => {
             navigate('/dashboard');
         } catch (error) {
             console.error("Failed to save device", error);
+            let message = 'Failed to save device.';
+            if (isAxiosError(error)) {
+                const serverMessage = (error.response?.data as any)?.message as string | undefined;
+                if (serverMessage && serverMessage.trim().length > 0) {
+                    message = serverMessage;
+                } else if (error.message) {
+                    message = error.message;
+                }
+            } else if (error instanceof Error) {
+                message = error.message || message;
+            }
+            setError(message);
         } finally {
             setIsSaving(false);
         }
@@ -114,6 +128,7 @@ export const DeviceSettingsPage = () => {
                     mqttSuffix={mqttSuffix}
                     setMqttSuffix={setMqttSuffix}
                 />
+                {error && <p className="text-red-600 px-6 pt-2">{error}</p>}
                 <CardFooter className="flex justify-end gap-3">
                     <Button variant="outline" type="button" onClick={() => navigate('/dashboard')}>
                         Cancel
