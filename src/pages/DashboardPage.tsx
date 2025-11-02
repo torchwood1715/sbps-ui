@@ -11,50 +11,7 @@ import {PlusCircle} from 'lucide-react';
 import {AxiosError} from "axios";
 import {Client} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-
-interface Device {
-    id: number;
-    name: string;
-    mqttPrefix: string;
-    deviceType: 'POWER_MONITOR' | 'SWITCHABLE_APPLIANCE';
-    priority: number;
-    wattage: number;
-    username: string;
-    isOnline?: boolean;
-    isOn?: boolean;
-    currentPower?: number;
-    voltage?: number;
-    temperature?: number;
-}
-
-interface DeviceStatusUpdate {
-    deviceId: number;
-    username: string;
-    isOnline?: boolean;
-    statusJson?: DeviceStatus;
-}
-
-interface DeviceStatus {
-    id: number;
-    source: string;
-    output: boolean;
-    apower: number;
-    voltage: number;
-    current: number;
-    aenergy: {
-        total: number;
-        by_minute: number[];
-        minute_ts: number;
-    };
-    temperature: { tC: number, tF: number };
-}
-
-interface DeviceOfflineStatus {
-    online: false;
-}
-
-type DeviceStatusData = DeviceStatus | DeviceOfflineStatus;
-type AllStatusesResponse = Record<string, DeviceStatusData>;
+import type { Device, DeviceStatusUpdate, DeviceStatus, AllStatusesResponse } from '@/types/api.types';
 
 
 export const DashboardPage = () => {

@@ -2,23 +2,10 @@ import React, {useState} from 'react';
 import {useLocation, useNavigate} from 'react-router-dom';
 import {useAuth} from '../hooks/useAuth';
 import apiClient from '../api/apiClient';
-import {Card, CardContent, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
-import {Label} from "@/components/ui/label";
-import {Input} from "@/components/ui/input";
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import {Card, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
-import {Checkbox} from "@/components/ui/checkbox";
-
-type DeviceType = 'POWER_MONITOR' | 'SWITCHABLE_APPLIANCE';
-
-interface DeviceFormData {
-    name: string;
-    mqttSuffix: string;
-    deviceType: DeviceType;
-    priority: number;
-    wattage: number;
-    // preventDowntime: boolean;
-}
+import DeviceForm from '@/components/DeviceForm';
+import type { DeviceFormData } from '@/types/forms.types';
 
 export const CreateDevicePage = () => {
     const {user} = useAuth();
@@ -32,11 +19,18 @@ export const CreateDevicePage = () => {
         deviceType: 'SWITCHABLE_APPLIANCE',
         priority: 0,
         wattage: 100,
+        preventDowntime: false,
+        maxDowntimeMinutes: 60,
+        minUptimeMinutes: 10,
     });
 
     const isMonitor = formData.deviceType === 'POWER_MONITOR';
 
-    const handleChange = (field: keyof Omit<DeviceFormData, 'deviceType'>, value: string | number) => {
+    const handleChange = (field: keyof DeviceFormData, value: string | number) => {
+        setFormData(prev => ({...prev, [field]: value}));
+    };
+
+    const handleCheckboxChange = (field: keyof Omit<DeviceFormData, 'deviceType' | 'name' | 'mqttSuffix' | 'priority' | 'wattage' | 'maxDowntimeMinutes' | 'minUptimeMinutes'>, value: boolean) => {
         setFormData(prev => ({...prev, [field]: value}));
     };
 
@@ -50,6 +44,9 @@ export const CreateDevicePage = () => {
             deviceType: formData.deviceType,
             priority: formData.priority,
             wattage: isMonitor ? 0 : formData.wattage,
+            preventDowntime: isMonitor ? false : formData.preventDowntime,
+            maxDowntimeMinutes: isMonitor ? 0 : formData.maxDowntimeMinutes,
+            minUptimeMinutes: isMonitor ? 0 : formData.minUptimeMinutes,
         };
 
         try {
@@ -69,91 +66,14 @@ export const CreateDevicePage = () => {
                     <CardTitle>Add New Device</CardTitle>
                 </CardHeader>
                 <form onSubmit={handleSave}>
-                    <CardContent className="space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Device Name</Label>
-                            <Input id="name" value={formData.name}
-                                   onChange={(e) => handleChange('name', e.target.value)} required/>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="mqttSuffix">Device ID (Suffix)</Label>
-                            <div className="flex items-center">
-                <span
-                    className="inline-flex items-center px-3 h-10 bg-muted border border-r-0 border-input rounded-l-md text-muted-foreground">
-                  {user?.username}-
-                </span>
-                                <Input
-                                    id="mqttSuffix"
-                                    value={formData.mqttSuffix}
-                                    onChange={(e) => handleChange('mqttSuffix', e.target.value)}
-                                    className="rounded-l-none"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="type">Type</Label>
-                            <Select
-                                value={formData.deviceType}
-                                onValueChange={(value: DeviceType) => setFormData(p => ({...p, deviceType: value}))}
-                                defaultValue={hasMonitor ? 'SWITCHABLE_APPLIANCE' : formData.deviceType}
-                            >
-                                <SelectTrigger id="type"><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="POWER_MONITOR" disabled={hasMonitor}>
-                                        Power Monitor {hasMonitor && "(Already exists)"}
-                                    </SelectItem>
-                                    <SelectItem value="SWITCHABLE_APPLIANCE">Switchable Appliance</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="wattage" className={isMonitor ? "text-muted-foreground" : ""}>
-                                Wattage (W)
-                            </Label>
-                            <Input
-                                id="wattage"
-                                type="number"
-                                value={isMonitor ? 0 : formData.wattage}
-                                onChange={(e) => handleChange('wattage', Number(e.target.value))}
-                                disabled={isMonitor}
-                                min="0"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="priority" className={isMonitor ? "text-muted-foreground" : ""}>
-                                Priority (0=High, 10=Low)
-                            </Label>
-                            <Input
-                                id="priority"
-                                type="number"
-                                value={isMonitor ? 0 : formData.priority}
-                                onChange={(e) => handleChange('priority', Number(e.target.value))}
-                                disabled={isMonitor}
-                                min="0"
-                                max="10"
-                                step="1"
-                            />
-                            <p className="text-sm text-muted-foreground">
-                                Devices with higher priority will be turned off last.
-                            </p>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                            <Checkbox id="downtime" disabled/>
-                            <Label
-                                htmlFor="downtime"
-                                className="text-muted-foreground cursor-not-allowed"
-                            >
-                                Prevent Downtime (API not ready)
-                            </Label>
-                        </div>
-
-                    </CardContent>
+                    <DeviceForm
+                        username={user?.username}
+                        formData={formData}
+                        onFieldChange={handleChange}
+                        onCheckboxChange={(field, value) => handleCheckboxChange(field as any, value)}
+                        isMonitor={isMonitor}
+                        hasMonitor={hasMonitor}
+                    />
                     <CardFooter className="flex justify-end gap-3">
                         <Button variant="outline" type="button" onClick={() => navigate('/dashboard')}>
                             Cancel
