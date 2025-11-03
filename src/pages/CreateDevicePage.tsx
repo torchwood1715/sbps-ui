@@ -7,6 +7,7 @@ import {Card, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import DeviceForm from '@/components/DeviceForm';
 import type {DeviceFormData} from '@/types/forms.types';
+import type {ApiErrorResponse} from "@/types/api.types.ts";
 
 export const CreateDevicePage = () => {
     const {user} = useAuth();
@@ -58,7 +59,7 @@ export const CreateDevicePage = () => {
             console.error("Failed to create device", error);
             let message = 'Failed to create device.';
             if (isAxiosError(error)) {
-                const serverMessage = (error.response?.data as any)?.message as string | undefined;
+                const serverMessage = (error.response?.data as ApiErrorResponse)?.message as string | undefined;
                 if (serverMessage && serverMessage.trim().length > 0) {
                     message = serverMessage;
                 } else if (error.message) {
@@ -84,7 +85,7 @@ export const CreateDevicePage = () => {
                         username={user?.username}
                         formData={formData}
                         onFieldChange={handleChange}
-                        onCheckboxChange={(field, value) => handleCheckboxChange(field as any, value)}
+                        onCheckboxChange={handleCheckboxChange}
                         isMonitor={isMonitor}
                         hasMonitor={hasMonitor}
                     />

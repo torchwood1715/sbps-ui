@@ -11,6 +11,7 @@ import {
     type DecodedToken,
     type UserInfo
 } from './auth.definitions';
+import type {ApiErrorResponse} from "@/types/api.types.ts";
 
 export const AuthProvider = ({children}: { children: ReactNode }) => {
     const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
@@ -54,7 +55,7 @@ export const AuthProvider = ({children}: { children: ReactNode }) => {
     const handleAuthError = (err: unknown) => {
         let errorMessage = 'An unknown error occurred.';
         if (isAxiosError(err)) {
-            const serverMessage = (err.response?.data as any)?.message as string | undefined;
+            const serverMessage = (err.response?.data as ApiErrorResponse)?.message as string | undefined;
             if (serverMessage && serverMessage.trim().length > 0) {
                 errorMessage = serverMessage;
             } else if (err.response?.status === 400 || err.response?.status === 401) {

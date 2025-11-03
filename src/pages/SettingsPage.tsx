@@ -6,7 +6,7 @@ import {Input} from "../components/ui/input";
 import {Label} from "../components/ui/label";
 import {Button} from "../components/ui/button";
 import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
-import type { SystemSettingsDto } from '@/types/api.types';
+import type {ApiErrorResponse, SystemSettingsDto} from '@/types/api.types';
 
 export const SettingsPage = () => {
     const navigate = useNavigate();
@@ -49,7 +49,7 @@ export const SettingsPage = () => {
             console.error("Failed to save settings", error);
             let message = 'Failed to save settings.';
             if (isAxiosError(error)) {
-                const serverMessage = (error.response?.data as any)?.message as string | undefined;
+                const serverMessage = (error.response?.data as ApiErrorResponse)?.message as string | undefined;
                 if (serverMessage && serverMessage.trim().length > 0) {
                     message = serverMessage;
                 } else if (error.message) {

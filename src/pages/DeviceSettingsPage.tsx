@@ -6,7 +6,7 @@ import {useAuth} from '../hooks/useAuth';
 import {Button} from "../components/ui/button";
 import {Card, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import DeviceForm from '@/components/DeviceForm';
-import type {DeviceRequestDTO, DeviceResponseDTO} from '@/types/api.types';
+import type {ApiErrorResponse, DeviceRequestDTO, DeviceResponseDTO} from '@/types/api.types';
 import type {DeviceFormData} from '@/types/forms.types';
 
 export const DeviceSettingsPage = () => {
@@ -93,7 +93,7 @@ export const DeviceSettingsPage = () => {
             console.error("Failed to save device", error);
             let message = 'Failed to save device.';
             if (isAxiosError(error)) {
-                const serverMessage = (error.response?.data as any)?.message as string | undefined;
+                const serverMessage = (error.response?.data as ApiErrorResponse)?.message as string | undefined;
                 if (serverMessage && serverMessage.trim().length > 0) {
                     message = serverMessage;
                 } else if (error.message) {

@@ -77,3 +77,8 @@ export interface SystemSettingsDto {
   powerOnMarginWatts: number;
   overloadCooldownSeconds: number;
 }
+
+export interface ApiErrorResponse {
+    message?: string;
+}
+
