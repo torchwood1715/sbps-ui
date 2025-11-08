@@ -7,6 +7,18 @@ import {Label} from "../components/ui/label";
 import {Button} from "../components/ui/button";
 import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import type {ApiErrorResponse, SystemSettingsDto} from '@/types/api.types';
+import {BellIcon, BellOffIcon} from "lucide-react";
+
+function urlBase64ToUint8Array(base64String: string) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
 
 export const SettingsPage = () => {
     const navigate = useNavigate();
@@ -18,6 +30,10 @@ export const SettingsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [pushError, setPushError] = useState<string | null>(null);
+    const [isPushSubscribed, setIsPushSubscribed] = useState(false);
+    const [isPushLoading, setIsPushLoading] = useState(true);
+    const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -33,7 +49,26 @@ export const SettingsPage = () => {
             }
         };
         fetchSettings();
-    }, []);
+
+        if (!vapidPublicKey) {
+            console.error("VITE_VAPID_PUBLIC_KEY is not set.");
+            setPushError("Push notification client is not configured.");
+        }
+        navigator.serviceWorker.ready
+            .then((registration) => {
+                return registration.pushManager.getSubscription();
+            })
+            .then((subscription) => {
+                setIsPushSubscribed(!!subscription);
+            })
+            .catch((err) => {
+                console.error("Error checking push subscription:", err);
+                setPushError("Could not check push subscription.");
+            })
+            .finally(() => {
+                setIsPushLoading(false);
+            });
+    }, [vapidPublicKey]);
 
     const handleChange = (field: keyof SystemSettingsDto, value: string) => {
         setFormData(prev => ({...prev, [field]: Number(value) || 0}));
@@ -64,13 +99,58 @@ export const SettingsPage = () => {
         }
     };
 
+    const handlePushSubscriptionToggle = async () => {
+        if (!vapidPublicKey) {
+            setPushError("VAPID key is not configured. Cannot subscribe.");
+            return;
+        }
+
+        setIsPushLoading(true);
+        setPushError(null);
+
+        try {
+            const registration = await navigator.serviceWorker.ready;
+
+            if (isPushSubscribed) {
+                const subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
+                    await apiClient.post('/api/notifications/unsubscribe', subscription.toJSON());
+                    await subscription.unsubscribe();
+                }
+                setIsPushSubscribed(false);
+            } else {
+                const permission = await Notification.requestPermission();
+                if (permission !== "granted") {
+                    throw new Error("Permission for notifications was not granted.");
+                }
+
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+                });
+
+                await apiClient.post('/api/notifications/subscribe', subscription.toJSON());
+                setIsPushSubscribed(true);
+            }
+        } catch (err) {
+            console.error("Failed to toggle push subscription", err);
+            let message = "Failed to update subscription.";
+            if (err instanceof Error) {
+                message = err.message;
+            }
+            setPushError(message);
+        } finally {
+            setIsPushLoading(false);
+        }
+    };
+
     if (isLoading) {
         return <div>Loading settings...</div>;
     }
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100">
-            <Card className="w-full max-w-md">
+            <Card className="w-full max-w-lg">
                 <CardHeader>
                     <CardTitle>System Settings</CardTitle>
                     <CardDescription>
@@ -112,6 +192,37 @@ export const SettingsPage = () => {
                         </p>
                     </div>
                     {error && <p className="text-red-600">{error}</p>}
+                    <Card className="bg-gray-50/50">
+                        <CardHeader>
+                            <CardTitle>Notifications</CardTitle>
+                            <CardDescription>
+                                Receive push notifications when the system takes action.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Button
+                                onClick={handlePushSubscriptionToggle}
+                                disabled={isPushLoading || !vapidPublicKey}
+                                variant={isPushSubscribed ? "destructive" : "default"}
+                                className="w-full"
+                            >
+                                {isPushLoading ? (
+                                    "Updating..."
+                                ) : isPushSubscribed ? (
+                                    <>
+                                        <BellOffIcon className="mr-2 h-4 w-4"/>
+                                        Disable Notifications on this Device
+                                    </>
+                                ) : (
+                                    <>
+                                        <BellIcon className="mr-2 h-4 w-4"/>
+                                        Enable Notifications on this Device
+                                    </>
+                                )}
+                            </Button>
+                            {pushError && <p className="text-red-600 text-sm mt-3">{pushError}</p>}
+                        </CardContent>
+                    </Card>
                 </CardContent>
                 <CardFooter className="flex justify-end gap-3">
                     <Button variant="outline" type="button" onClick={() => navigate('/dashboard')}>
