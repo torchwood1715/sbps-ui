@@ -221,6 +221,11 @@ export const DashboardPage = () => {
                     const updatedHistory = [...prevHistory, newPoint];
                     return updatedHistory.filter((p) => p.time > now - FIVE_MINUTES_MS);
                 });
+            } else {
+                setPowerHistory((prevHistory) => {
+                    const now = Date.now();
+                    return prevHistory.filter((p) => p.time > now - FIVE_MINUTES_MS);
+                });
             }
         }, UPDATE_INTERVAL_MS);
 
@@ -283,9 +288,13 @@ export const DashboardPage = () => {
                 0,
             );
 
-            const otherPower = Math.max(0, currentPower - appliancesPower);
-
-            donutSegments.push({name: 'Other', power: otherPower});
+            const totalPowerForDonut = isOnline ? currentPower : appliancesPower;
+            if (isOnline) {
+                const otherPower = Math.max(0, currentPower - appliancesPower);
+                donutSegments.push({name: 'Other', power: otherPower});
+            } else {
+                donutSegments.push({name: 'Other', power: 0});
+            }
 
             appliances.forEach((appliance) => {
                 donutSegments.push({
@@ -294,27 +303,27 @@ export const DashboardPage = () => {
                 });
             });
 
-            donutSegments = donutSegments.filter((s) => s.power > 0.1 || s.name === 'Other');
-        }
+            donutSegments = donutSegments.filter(
+                (s) => s.power > 0.1 || s.name === 'Other'
+            );
 
-        return (
-            <Card key={device.id} className={isMonitor ? 'md:col-span-2' : ''}>
-                <CardHeader>
-                    <CardTitle className="flex justify-between items-center">
-                        {device.name}
-                        <Badge variant={isOnline ? 'default' : 'outline'}>
-                            {isOnline ? 'Online' : 'Offline'}
-                        </Badge>
-                    </CardTitle>
-                    <CardDescription>{device.mqttPrefix}</CardDescription>
-                </CardHeader>
+            return (
+                <Card key={device.id} className={isMonitor ? 'md:col-span-2' : ''}>
+                    <CardHeader>
+                        <CardTitle className="flex justify-between items-center">
+                            {device.name}
+                            <Badge variant={isOnline ? 'default' : 'outline'}>
+                                {isOnline ? 'Online' : 'Offline'}
+                            </Badge>
+                        </CardTitle>
+                        <CardDescription>{device.mqttPrefix}</CardDescription>
+                    </CardHeader>
 
-                {isMonitor ? (
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                         <div>
                             <PowerDonut
                                 segments={donutSegments}
-                                totalPower={currentPower}
+                                totalPower={totalPowerForDonut}
                                 powerLimit={powerLimit}
                             />
                         </div>
@@ -338,36 +347,62 @@ export const DashboardPage = () => {
                             <LiveUsageGraph
                                 history={powerHistory}
                                 powerLimit={powerLimit}
+                                isOnline={isOnline}
                             />
                         </div>
                     </CardContent>
-                ) : (
-                    <CardContent>
-                        <div className="grid grid-cols-3 gap-y-4 gap-x-2 pt-4 text-center">
-                            <div>
-                                <p className="text-sm text-muted-foreground">Type</p>
-                                <p className="font-medium">Appliance</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Power</p>
-                                <p className="font-medium">{currentPower.toFixed(2)} W</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Priority</p>
-                                <p className="font-medium">{device.priority}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Voltage</p>
-                                <p className="font-medium">{voltage.toFixed(1)} V</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Temp</p>
-                                <p className="font-medium">{temperature.toFixed(1)} °C</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                )}
 
+                    <CardFooter className="flex justify-between">
+                        <Button
+                            variant="outline"
+                            onClick={() =>
+                                navigate(`/device/${device.id}/settings`, {
+                                    state: {hasMonitor},
+                                })
+                            }
+                        >
+                            Settings
+                        </Button>
+                    </CardFooter>
+                </Card>
+            );
+        }
+
+        return (
+            <Card key={device.id}>
+                <CardHeader>
+                    <CardTitle className="flex justify-between items-center">
+                        {device.name}
+                        <Badge variant={isOnline ? 'default' : 'outline'}>
+                            {isOnline ? 'Online' : 'Offline'}
+                        </Badge>
+                    </CardTitle>
+                    <CardDescription>{device.mqttPrefix}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-3 gap-y-4 gap-x-2 pt-4 text-center">
+                        <div>
+                            <p className="text-sm text-muted-foreground">Type</p>
+                            <p className="font-medium">Appliance</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Power</p>
+                            <p className="font-medium">{currentPower.toFixed(2)} W</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Priority</p>
+                            <p className="font-medium">{device.priority}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Voltage</p>
+                            <p className="font-medium">{voltage.toFixed(1)} V</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Temp</p>
+                            <p className="font-medium">{temperature.toFixed(1)} °C</p>
+                        </div>
+                    </div>
+                </CardContent>
                 <CardFooter className="flex justify-between">
                     <Button
                         variant="outline"
@@ -445,7 +480,10 @@ export const DashboardPage = () => {
                         .sort((a, b) => {
                             if (a.deviceType === 'POWER_MONITOR') return -1;
                             if (b.deviceType === 'POWER_MONITOR') return 1;
-                            return 0;
+                            if (a.priority !== b.priority) {
+                                return a.priority - b.priority;
+                            }
+                            return a.name.localeCompare(b.name);
                         })
                         .map(renderDeviceCard)}
                 </div>
