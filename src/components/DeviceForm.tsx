@@ -51,7 +51,7 @@ export const DeviceForm: React.FC<DeviceFormProps> = ({
             {/* MQTT suffix input - shown when either mqttSuffix prop/state is provided (edit), or when formData has mqttSuffix (create) */}
             {(typeof mqttSuffix !== 'undefined' || typeof formData.mqttSuffix !== 'undefined') && (
                 <div className="space-y-2">
-                    <Label htmlFor="mqttSuffix">ID (Suffix)</Label>
+                    <Label htmlFor="mqttSuffix">ID</Label>
                     <div className="flex items-center">
             <span
                 className="inline-flex items-center px-3 h-10 bg-muted border border-r-0 border-input rounded-l-md text-muted-foreground">

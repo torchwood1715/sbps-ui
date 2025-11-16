@@ -42,12 +42,12 @@ export const LiveUsageGraph: React.FC<LiveUsageGraphProps> = ({
         return 'bg-primary';
     };
 
-    let title = "Live Usage (Last ~2 min)";
+    let title = "Поточне споживання (Ост. ~2 хв)";
     if (!isOnline) {
         if (history.length > 0) {
-            title = "Live Usage (Stale data)";
+            title = "Поточне споживання (Застарілі дані)";
         } else {
-            title = "Live Usage (Monitor Offline)";
+            title = "Поточне споживання (Монітор офлайн)";
         }
     }
 
@@ -59,7 +59,7 @@ export const LiveUsageGraph: React.FC<LiveUsageGraphProps> = ({
                     className="flex h-10 w-full items-center justify-center rounded border-2 border-dashed border-muted"
                     style={{height: `${height}px`}}
                 >
-                    <p className="text-xs text-muted-foreground">No Data</p>
+                    <p className="text-xs text-muted-foreground">Немає даних</p>
                 </div>
             </div>
         );

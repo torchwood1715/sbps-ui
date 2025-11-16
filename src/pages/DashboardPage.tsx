@@ -482,7 +482,7 @@ export const DashboardPage = () => {
                                     onCheckedChange={() => handleToggle(device.id, isOn)}
                                     disabled={!isOnline}
                                 />
-                                <Label htmlFor={`toggle-${device.id}`}>{isOn ? 'On' : 'Off'}</Label>
+                                <Label htmlFor={`toggle-${device.id}`}>{isOn ? 'Увімк.' : 'Вимк.'}</Label>
                             </div>
                         )}
                     </CardFooter>
