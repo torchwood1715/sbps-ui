@@ -5,6 +5,7 @@ import {isAxiosError} from 'axios';
 import {Input} from "../components/ui/input";
 import {Label} from "../components/ui/label";
 import {Button} from "../components/ui/button";
+import {Switch} from "../components/ui/switch";
 import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import type {ApiErrorResponse, SystemSettingsDto} from '@/types/api.types';
 import {BellIcon, BellOffIcon} from "lucide-react";
@@ -26,6 +27,8 @@ export const SettingsPage = () => {
         powerLimitWatts: 3500,
         powerOnMarginWatts: 500,
         overloadCooldownSeconds: 30,
+        powerSaveLimitWatts: 1500,
+        isVacationModeEnabled: false,
     });
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -40,10 +43,16 @@ export const SettingsPage = () => {
             setIsLoading(true);
             try {
                 const response = await apiClient.get<SystemSettingsDto>('/api/settings');
-                setFormData(response.data);
+                setFormData({
+                    powerLimitWatts: response.data.powerLimitWatts ?? 3500,
+                    powerOnMarginWatts: response.data.powerOnMarginWatts ?? 500,
+                    overloadCooldownSeconds: response.data.overloadCooldownSeconds ?? 30,
+                    powerSaveLimitWatts: response.data.powerSaveLimitWatts ?? 1000,
+                    isVacationModeEnabled: response.data.isVacationModeEnabled ?? false,
+                });
             } catch (err) {
                 console.error("Failed to fetch settings", err);
-                setError("Could not load settings. Using defaults.");
+                setError("Не вдалось завантажити налаштування. Використовуються стандартні.");
             } finally {
                 setIsLoading(false);
             }
@@ -72,6 +81,11 @@ export const SettingsPage = () => {
 
     const handleChange = (field: keyof SystemSettingsDto, value: string) => {
         setFormData(prev => ({...prev, [field]: Number(value) || 0}));
+    };
+
+    const handleCheckboxChange = (field: 'isVacationModeEnabled', value: boolean) => {
+        setFormData(prev => ({...prev, [field]: value}));
+
     };
 
     const handleSave = async () => {
@@ -145,58 +159,88 @@ export const SettingsPage = () => {
     };
 
     if (isLoading) {
-        return <div>Loading settings...</div>;
+        return <div>Завантаження налаштувань...</div>;
     }
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100">
             <Card className="w-full max-w-lg">
                 <CardHeader>
-                    <CardTitle>System Settings</CardTitle>
+                    <CardTitle>Налаштування системи</CardTitle>
                     <CardDescription>
-                        Configure the main power limits for your system.
+                        Налаштуйте ліміти потужності вашої системи.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="space-y-2">
-                        <Label htmlFor="powerLimitWatts">Power Limit (W)</Label>
+                        <Label htmlFor="powerLimitWatts">Ліміт потужності (Вт)</Label>
                         <Input id="powerLimitWatts" type="number"
                                value={formData.powerLimitWatts}
                                onChange={(e) => handleChange('powerLimitWatts', e.target.value)}
                                required
                                min="0"/>
                         <p className="text-sm text-muted-foreground">
-                            Total power limit for the system (e.g., your main breaker limit).
+                            Загальний ліміт потужності для системи (напр. ліміт вашого вхідного автомату).
                         </p>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="powerOnMarginWatts">Power-On Margin (W)</Label>
+                        <Label htmlFor="powerSaveLimitWatts">Ліміт енергозбереження (Вт)</Label>
+                        <Input id="powerSaveLimitWatts" type="number"
+                               value={formData.powerSaveLimitWatts}
+                               onChange={(e) => handleChange('powerSaveLimitWatts', e.target.value)}
+                               required
+                               min="0"/>
+                        <p className="text-sm text-muted-foreground">
+                            Ліміт, що буде використовуватись під час блекауту або у режимі "Відпустка" (напр. ліміт
+                            інвертора).
+                        </p>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="powerOnMarginWatts">Резерв для увімкнення (Вт)</Label>
                         <Input id="powerOnMarginWatts" type="number"
                                value={formData.powerOnMarginWatts}
                                onChange={(e) => handleChange('powerOnMarginWatts', e.target.value)}
                                required
                                min="0"/>
                         <p className="text-sm text-muted-foreground">
-                            Available power needed to turn a device on.
+                            Доступна потужність, необхідна для увімкнення пристрою з черги.
                         </p>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="overloadCooldownSeconds">Overload Cooldown (sec)</Label>
+                        <Label htmlFor="overloadCooldownSeconds">Затримка відновлення (сек)</Label>
                         <Input id="overloadCooldownSeconds" type="number"
                                value={formData.overloadCooldownSeconds}
                                onChange={(e) => handleChange('overloadCooldownSeconds', e.target.value)}
                                required
                                min="0"/>
                         <p className="text-sm text-muted-foreground">
-                            Time to wait after an overload before turning devices back on.
+                            Час очікування після перевантаження перед увімкненням пристроїв.
                         </p>
                     </div>
                     {error && <p className="text-red-600">{error}</p>}
                     <Card className="bg-gray-50/50">
                         <CardHeader>
+                            <CardTitle>Режим "Відпустка"</CardTitle>
+                            <CardDescription>
+                                Примусово активує режим енергозбереження та вимикає всі не життєво важливі пристрої.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex items-center space-x-2">
+                            <Switch
+                                id="vacation-mode"
+                                checked={formData.isVacationModeEnabled}
+                                onCheckedChange={(checked) => handleCheckboxChange('isVacationModeEnabled', checked)}
+                            />
+                            <Label htmlFor="vacation-mode">
+                                {formData.isVacationModeEnabled ? "Режим 'Відпустка' увімкнено" : "Режим 'Відпустка' вимкнено"}
+                            </Label>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-gray-50/50">
+                        <CardHeader>
                             <CardTitle>Notifications</CardTitle>
                             <CardDescription>
-                                Receive push notifications when the system takes action.
+                                Отримувати push-сповіщення, коли система приймає рішення.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -207,16 +251,16 @@ export const SettingsPage = () => {
                                 className="w-full"
                             >
                                 {isPushLoading ? (
-                                    "Updating..."
+                                    "Оновлення..."
                                 ) : isPushSubscribed ? (
                                     <>
                                         <BellOffIcon className="mr-2 h-4 w-4"/>
-                                        Disable Notifications on this Device
+                                        Вимкнути сповіщення на цьому пристрої
                                     </>
                                 ) : (
                                     <>
                                         <BellIcon className="mr-2 h-4 w-4"/>
-                                        Enable Notifications on this Device
+                                        Увімкнути сповіщення на цьому пристрої
                                     </>
                                 )}
                             </Button>
@@ -226,10 +270,10 @@ export const SettingsPage = () => {
                 </CardContent>
                 <CardFooter className="flex justify-end gap-3">
                     <Button variant="outline" type="button" onClick={() => navigate('/dashboard')}>
-                        Cancel
+                        Скасувати
                     </Button>
                     <Button onClick={handleSave} disabled={isSaving}>
-                        {isSaving ? 'Saving...' : 'Save Settings'}
+                        {isSaving ? 'Збереження...' : 'Зберегти налаштування'}
                     </Button>
                 </CardFooter>
             </Card>

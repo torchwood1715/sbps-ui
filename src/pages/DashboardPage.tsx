@@ -7,7 +7,7 @@ import {Label} from '@/components/ui/label';
 import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {Switch} from '@/components/ui/switch';
-import {PlusCircle} from 'lucide-react';
+import {AlertTriangle, Moon, PlusCircle, Sun} from 'lucide-react';
 import {isAxiosError} from 'axios';
 import {Client} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -38,9 +38,17 @@ export const DashboardPage = () => {
     const [loadingDevices, setLoadingDevices] = useState(false);
     const [deviceError, setDeviceError] = useState<string | null>(null);
 
-    const hasMonitor = devices.some((d) => d.deviceType === 'POWER_MONITOR');
+    const hasPowerMonitor = devices.some((d) => d.deviceType === 'POWER_MONITOR');
+    const hasGridMonitor = devices.some((d) => d.deviceType === 'GRID_MONITOR');
 
     const powerLimit = settings?.powerLimitWatts ?? 3500;
+
+    const gridMonitor = devices.find(d => d.deviceType === 'GRID_MONITOR');
+    const isGridAvailable = gridMonitor
+        ? (gridMonitor.isOnline && (gridMonitor.voltage ?? 0) > 100)
+        : true;
+    const isVacationMode = settings?.isVacationModeEnabled ?? false;
+    const isPowerSaveMode = isVacationMode || !isGridAvailable;
 
     const updateDeviceState = (update: DeviceStatusUpdate) => {
         setDevices((prevDevices) =>
@@ -83,7 +91,7 @@ export const DashboardPage = () => {
                     await apiClient.get<SystemSettingsDto>('/api/settings');
                 setSettings(settingsResponse.data);
             } catch (err) {
-                console.warn('Could not load system settings, using defaults.', err);
+                console.warn('Не вдалось завантажити налаштування. Використовуються стандартні.', err);
                 setSettings({
                     powerLimitWatts: 3500,
                     powerOnMarginWatts: 500,
@@ -131,7 +139,7 @@ export const DashboardPage = () => {
             setDevices(devicesWithStatus);
         } catch (err) {
             console.error('Failed to fetch devices:', err);
-            let message = 'Failed to load devices.';
+            let message = 'Не вдалося завантажити пристрої.';
             if (isAxiosError(err)) {
                 const serverMessage = (err.response?.data as ApiErrorResponse)?.message;
 
@@ -256,20 +264,25 @@ export const DashboardPage = () => {
 
     const renderEmptyState = () => (
         <div className="text-center p-8 border-2 border-dashed rounded-lg">
-            <h3 className="text-lg font-medium">No devices found</h3>
+            <h3 className="text-lg font-medium">Пристрої не знайдено</h3>
             <p className="text-sm text-muted-foreground mb-4">
-                Get started by adding your first device.
+                Почніть з додавання вашого першого пристрою.
             </p>
             <Button
-                onClick={() => navigate('/device/create', {state: {hasMonitor: false}})}
+                onClick={() => navigate('/device/create', {state: {hasPowerMonitor, hasGridMonitor}})}
             >
-                <PlusCircle className="mr-2 h-4 w-4"/> Add Device
+                <PlusCircle className="mr-2 h-4 w-4"/> Додати пристрій
             </Button>
         </div>
     );
 
     const renderDeviceCard = (device: Device) => {
-        const isMonitor = device.deviceType === 'POWER_MONITOR';
+        const isPowerMonitor = device.deviceType === 'POWER_MONITOR';
+        const isGridMonitor = device.deviceType === 'GRID_MONITOR';
+        const currentGridMonitor = devices.find(d => d.deviceType === 'GRID_MONITOR');
+        const isGridAvailable = currentGridMonitor
+            ? (currentGridMonitor.isOnline && (currentGridMonitor.voltage ?? 0) > 100)
+            : true;
         const isSwitchable = device.deviceType === 'SWITCHABLE_APPLIANCE';
         const isOnline = device.isOnline ?? false;
         const isOn = device.isOn ?? false;
@@ -278,7 +291,7 @@ export const DashboardPage = () => {
         const temperature = device.temperature ?? 0;
 
         let donutSegments: DonutSegment[] = [];
-        if (isMonitor) {
+        if (isPowerMonitor) {
             const appliances = devices.filter(
                 (d) => d.deviceType === 'SWITCHABLE_APPLIANCE' && d.isOnline,
             );
@@ -291,9 +304,9 @@ export const DashboardPage = () => {
             const totalPowerForDonut = isOnline ? currentPower : appliancesPower;
             if (isOnline) {
                 const otherPower = Math.max(0, currentPower - appliancesPower);
-                donutSegments.push({name: 'Other', power: otherPower});
+                donutSegments.push({name: 'Інші', power: otherPower});
             } else {
-                donutSegments.push({name: 'Other', power: 0});
+                donutSegments.push({name: 'Інші', power: 0});
             }
 
             appliances.forEach((appliance) => {
@@ -304,16 +317,16 @@ export const DashboardPage = () => {
             });
 
             donutSegments = donutSegments.filter(
-                (s) => s.power > 0.1 || s.name === 'Other'
+                (s) => s.power > 0.1 || s.name === 'Інші'
             );
 
             return (
-                <Card key={device.id} className={isMonitor ? 'md:col-span-2' : ''}>
+                <Card key={device.id} className={isPowerMonitor ? 'md:col-span-2' : ''}>
                     <CardHeader>
                         <CardTitle className="flex justify-between items-center">
                             {device.name}
                             <Badge variant={isOnline ? 'default' : 'outline'}>
-                                {isOnline ? 'Online' : 'Offline'}
+                                {isOnline ? 'Онлайн' : 'Офлайн'}
                             </Badge>
                         </CardTitle>
                         <CardDescription>{device.mqttPrefix}</CardDescription>
@@ -331,15 +344,15 @@ export const DashboardPage = () => {
                         <div>
                             <div className="grid grid-cols-3 gap-y-4 text-center mb-4">
                                 <div>
-                                    <p className="text-sm text-muted-foreground">Type</p>
-                                    <p className="font-medium">Monitor</p>
+                                    <p className="text-sm text-muted-foreground">Тип</p>
+                                    <p className="font-medium">Монітор</p>
                                 </div>
                                 <div>
-                                    <p className="text-sm text-muted-foreground">Voltage</p>
+                                    <p className="text-sm text-muted-foreground">Напруга</p>
                                     <p className="font-medium">{voltage.toFixed(1)} V</p>
                                 </div>
                                 <div>
-                                    <p className="text-sm text-muted-foreground">Temp</p>
+                                    <p className="text-sm text-muted-foreground">Темп.</p>
                                     <p className="font-medium">{temperature.toFixed(1)} °C</p>
                                 </div>
                             </div>
@@ -357,119 +370,202 @@ export const DashboardPage = () => {
                             variant="outline"
                             onClick={() =>
                                 navigate(`/device/${device.id}/settings`, {
-                                    state: {hasMonitor},
+                                    state: {hasPowerMonitor, hasGridMonitor},
                                 })
                             }
                         >
-                            Settings
+                            Налаштувати
                         </Button>
                     </CardFooter>
                 </Card>
             );
         }
 
-        return (
-            <Card key={device.id}>
-                <CardHeader>
-                    <CardTitle className="flex justify-between items-center">
-                        {device.name}
-                        <Badge variant={isOnline ? 'default' : 'outline'}>
-                            {isOnline ? 'Online' : 'Offline'}
-                        </Badge>
-                    </CardTitle>
-                    <CardDescription>{device.mqttPrefix}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-3 gap-y-4 gap-x-2 pt-4 text-center">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Type</p>
-                            <p className="font-medium">Appliance</p>
+        if (isGridMonitor) {
+            return (
+                <Card key={device.id}>
+                    <CardHeader>
+                        <CardTitle className="flex justify-between items-center">
+                            {device.name}
+                            <Badge variant={isOnline ? 'default' : 'outline'}>
+                                {isOnline ? 'Онлайн' : 'Офлайн'}
+                            </Badge>
+                        </CardTitle>
+                        <CardDescription>{device.mqttPrefix}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-4 text-center">
+                            <div>
+                                <p className="text-sm text-muted-foreground">Тип</p>
+                                <p className="font-medium">Монітор мережі</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Статус</p>
+                                <p className="font-medium">{isGridAvailable ? 'Є живлення' : 'Блекаут'}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Напруга</p>
+                                <p className="font-medium">{voltage.toFixed(1)} V</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Темп.</p>
+                                <p className="font-medium">{temperature.toFixed(1)} °C</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Power</p>
-                            <p className="font-medium">{currentPower.toFixed(2)} W</p>
+                    </CardContent>
+                    <CardFooter className="flex justify-between">
+                        <Button
+                            variant="outline"
+                            onClick={() =>
+                                navigate(`/device/${device.id}/settings`, {
+                                    state: {hasPowerMonitor, hasGridMonitor},
+                                })
+                            }
+                        >
+                            Налаштувати
+                        </Button>
+                    </CardFooter>
+                </Card>
+            );
+        }
+
+        if (isSwitchable) {
+            return (
+                <Card key={device.id}>
+                    <CardHeader>
+                        <CardTitle className="flex justify-between items-center">
+                            {device.name}
+                            <Badge variant={isOnline ? 'default' : 'outline'}>
+                                {isOnline ? 'Онлайн' : 'Офлайн'}
+                            </Badge>
+                        </CardTitle>
+                        <CardDescription>{device.mqttPrefix}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-3 gap-y-4 gap-x-2 pt-4 text-center">
+                            <div>
+                                <p className="text-sm text-muted-foreground">Тип</p>
+                                <p className="font-medium">Пристрій</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Потужність</p>
+                                <p className="font-medium">{currentPower.toFixed(2)} W</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Пріоритет</p>
+                                <p className="font-medium">{device.priority}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Напруга</p>
+                                <p className="font-medium">{voltage.toFixed(1)} V</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Темп.</p>
+                                <p className="font-medium">{temperature.toFixed(1)} °C</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Priority</p>
-                            <p className="font-medium">{device.priority}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Voltage</p>
-                            <p className="font-medium">{voltage.toFixed(1)} V</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Temp</p>
-                            <p className="font-medium">{temperature.toFixed(1)} °C</p>
-                        </div>
-                    </div>
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                    <Button
-                        variant="outline"
-                        onClick={() =>
-                            navigate(`/device/${device.id}/settings`, {state: {hasMonitor}})
-                        }
-                    >
-                        Settings
-                    </Button>
-                    {isSwitchable && (
-                        <div className="flex items-center space-x-2">
-                            <Switch
-                                id={`toggle-${device.id}`}
-                                checked={isOn}
-                                onCheckedChange={() => handleToggle(device.id, isOn)}
-                                disabled={!isOnline}
-                            />
-                            <Label htmlFor={`toggle-${device.id}`}>{isOn ? 'On' : 'Off'}</Label>
-                        </div>
-                    )}
-                </CardFooter>
-            </Card>
-        );
+                    </CardContent>
+                    <CardFooter className="flex justify-between">
+                        <Button
+                            variant="outline"
+                            onClick={() =>
+                                navigate(`/device/${device.id}/settings`, {state: {hasPowerMonitor, hasGridMonitor}})
+                            }
+                        >
+                            Налаштування
+                        </Button>
+                        {isSwitchable && (
+                            <div className="flex items-center space-x-2">
+                                <Switch
+                                    id={`toggle-${device.id}`}
+                                    checked={isOn}
+                                    onCheckedChange={() => handleToggle(device.id, isOn)}
+                                    disabled={!isOnline}
+                                />
+                                <Label htmlFor={`toggle-${device.id}`}>{isOn ? 'On' : 'Off'}</Label>
+                            </div>
+                        )}
+                    </CardFooter>
+                </Card>
+            );
+        }
+        return null;
     };
+
 
     return (
         <div className="p-4 md:p-8 max-w-4xl mx-auto">
             <header className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-3xl font-bold">Dashboard</h1>
+                    <h1 className="text-3xl font-bold">Панель керування</h1>
                     <p className="text-muted-foreground">
-                        Welcome back, {user?.username}!
+                        Вітаємо, {user?.username}!
                     </p>
                 </div>
                 <div className="flex gap-2">
                     <Button onClick={() => navigate('/settings')} variant="secondary">
-                        Settings
+                        Налаштування
                     </Button>
                     <Button onClick={logout} variant="outline">
-                        Logout
+                        Вийти
                     </Button>
                 </div>
             </header>
 
+            {isPowerSaveMode && (
+                <div className={`p-4 mb-4 flex items-center gap-3 rounded-lg ${
+                    isVacationMode
+                        ? 'bg-blue-100 border-blue-400 text-blue-700'
+                        : 'bg-red-100 border-red-400 text-red-700'
+                }`}>
+                    {isVacationMode ? <Moon className="h-5 w-5"/> : <AlertTriangle className="h-5 w-5"/>}
+                    <div>
+                        <h4 className="font-bold">
+                            {isVacationMode ? 'Режим "Відпустка" активовано' : 'Режим "Блекаут" активовано'}
+                        </h4>
+                        <p className="text-sm">
+                            {isVacationMode
+                                ? 'Система працює в режимі енергозбереження. Не життєво важливі пристрої вимкнено.'
+                                : 'Немає живлення від мережі. Система працює від батареї з обмеженою потужністю.'}
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {!isPowerSaveMode && (
+                <div
+                    className="p-4 mb-4 flex items-center gap-3 bg-green-100 border-green-400 text-green-700 rounded-lg">
+                    <Sun className="h-5 w-5"/>
+                    <div>
+                        <h4 className="font-bold">Система в нормі</h4>
+                        <p className="text-sm">Живлення від мережі. Балансування працює у звичайному режимі.</p>
+                    </div>
+                </div>
+            )}
+
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-semibold">My Devices</h2>
+                <h2 className="text-2xl font-semibold">Мої пристрої</h2>
                 <div className="flex gap-2">
                     <Button
                         variant="outline"
                         onClick={fetchData}
                         disabled={loadingDevices}
                     >
-                        {loadingDevices ? 'Refreshing...' : 'Refresh'}
+                        {loadingDevices ? 'Оновлення...' : 'Оновити'}
                     </Button>
                     {devices.length > 0 && (
                         <Button
                             onClick={() =>
-                                navigate('/device/create', {state: {hasMonitor}})
+                                navigate('/device/create', {state: {hasPowerMonitor, hasGridMonitor}})
                             }
                         >
-                            <PlusCircle className="mr-2 h-4 w-4"/> Add Device
+                            <PlusCircle className="mr-2 h-4 w-4"/> Додати пристрій
                         </Button>
                     )}
                 </div>
             </div>
 
-            {loadingDevices && <p>Loading devices...</p>}
+            {loadingDevices && <p>Завантаження пристроїв...</p>}
             {deviceError && <p className="text-red-600">{deviceError}</p>}
 
             {!loadingDevices && !deviceError && devices.length === 0 && renderEmptyState()}

@@ -6,7 +6,7 @@ import {useAuth} from '../hooks/useAuth';
 import {Button} from "../components/ui/button";
 import {Card, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import DeviceForm from '@/components/DeviceForm';
-import type {ApiErrorResponse, DeviceRequestDTO, DeviceResponseDTO} from '@/types/api.types';
+import type {ApiErrorResponse, DeviceProvider, DeviceRequestDTO, DeviceResponseDTO} from '@/types/api.types';
 import type {DeviceFormData} from '@/types/forms.types';
 
 export const DeviceSettingsPage = () => {
@@ -14,11 +14,14 @@ export const DeviceSettingsPage = () => {
     const {user} = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
-    const hasMonitor = location.state?.hasMonitor ?? false;
+    const hasPowerMonitor = location.state?.hasPowerMonitor ?? false;
+    const hasGridMonitor = location.state?.hasGridMonitor ?? false;
 
     const [formData, setFormData] = useState<DeviceFormData>({
         name: '',
         deviceType: 'SWITCHABLE_APPLIANCE',
+        provider: 'SHELLY',
+        isNonEssential: false,
         priority: 0,
         wattage: 0,
         preventDowntime: false,
@@ -40,6 +43,8 @@ export const DeviceSettingsPage = () => {
                 setFormData({
                     name: response.data.name,
                     deviceType: response.data.deviceType,
+                    provider: response.data.provider,
+                    isNonEssential: response.data.isNonEssential,
                     priority: response.data.priority,
                     wattage: response.data.wattage,
                     preventDowntime: response.data.preventDowntime,
@@ -62,13 +67,13 @@ export const DeviceSettingsPage = () => {
         fetchDevice();
     }, [deviceId, user?.username]);
 
-    const isMonitor = formData.deviceType === 'POWER_MONITOR';
+    const isMonitor = formData.deviceType === 'POWER_MONITOR' || formData.deviceType === 'GRID_MONITOR';
 
-    const handleChange = (field: keyof DeviceFormData, value: string | number) => {
+    const handleChange = (field: keyof DeviceFormData, value: string | number | DeviceProvider) => {
         setFormData(prev => ({...prev, [field]: value}));
     };
 
-    const handleCheckboxChange = (field: 'preventDowntime', value: boolean) => {
+    const handleCheckboxChange = (field: 'preventDowntime' | 'isNonEssential', value: boolean) => {
         setFormData(prev => ({...prev, [field]: value}));
     };
 
@@ -79,7 +84,9 @@ export const DeviceSettingsPage = () => {
             name: formData.name,
             mqttPrefix: `${user?.username}-${mqttSuffix}`,
             deviceType: formData.deviceType,
-            priority: formData.priority,
+            provider: formData.provider,
+            isNonEssential: isMonitor ? false : formData.isNonEssential,
+            priority: isMonitor ? 0 : formData.priority,
             wattage: isMonitor ? 0 : formData.wattage,
             preventDowntime: isMonitor ? false : formData.preventDowntime,
             maxDowntimeMinutes: isMonitor ? 0 : formData.maxDowntimeMinutes,
@@ -109,14 +116,14 @@ export const DeviceSettingsPage = () => {
     };
 
     if (isLoading) {
-        return <div>Loading device settings...</div>;
+        return <div>Завантажуємо налаштування...</div>;
     }
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100">
             <Card className="w-full max-w-md">
                 <CardHeader>
-                    <CardTitle>Edit: {formData.name}</CardTitle>
+                    <CardTitle>Редагувати: {formData.name}</CardTitle>
                 </CardHeader>
                 <DeviceForm
                     username={user?.username}
@@ -124,14 +131,15 @@ export const DeviceSettingsPage = () => {
                     onFieldChange={handleChange}
                     onCheckboxChange={handleCheckboxChange}
                     isMonitor={isMonitor}
-                    hasMonitor={hasMonitor}
+                    hasMonitor={hasPowerMonitor}
+                    hasGridMonitor={hasGridMonitor}
                     mqttSuffix={mqttSuffix}
                     setMqttSuffix={setMqttSuffix}
                 />
                 {error && <p className="text-red-600 px-6 pt-2">{error}</p>}
                 <CardFooter className="flex justify-end gap-3">
                     <Button variant="outline" type="button" onClick={() => navigate('/dashboard')}>
-                        Cancel
+                        Скасувати
                     </Button>
                     <Button onClick={handleSave} disabled={isSaving}>
                         {isSaving ? 'Saving...' : 'Save Changes'}

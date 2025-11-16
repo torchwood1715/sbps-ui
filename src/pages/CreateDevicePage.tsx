@@ -7,19 +7,22 @@ import {Card, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import DeviceForm from '@/components/DeviceForm';
 import type {DeviceFormData} from '@/types/forms.types';
-import type {ApiErrorResponse} from "@/types/api.types.ts";
+import type {ApiErrorResponse, DeviceProvider} from "@/types/api.types.ts";
 
 export const CreateDevicePage = () => {
     const {user} = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
-    const hasMonitor = location.state?.hasMonitor ?? false;
+    const hasPowerMonitor = location.state?.hasPowerMonitor ?? false;
+    const hasGridMonitor = location.state?.hasGridMonitor ?? false;
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState<DeviceFormData>({
         name: '',
         mqttSuffix: '',
         deviceType: 'SWITCHABLE_APPLIANCE',
+        provider: 'SHELLY',
+        isNonEssential: false,
         priority: 0,
         wattage: 100,
         preventDowntime: false,
@@ -27,13 +30,13 @@ export const CreateDevicePage = () => {
         minUptimeMinutes: 10,
     });
 
-    const isMonitor = formData.deviceType === 'POWER_MONITOR';
+    const isMonitor = formData.deviceType === 'POWER_MONITOR' || formData.deviceType === 'GRID_MONITOR';
 
-    const handleChange = (field: keyof DeviceFormData, value: string | number) => {
+    const handleChange = (field: keyof DeviceFormData, value: string | number | DeviceProvider) => {
         setFormData(prev => ({...prev, [field]: value}));
     };
 
-    const handleCheckboxChange = (field: keyof Omit<DeviceFormData, 'deviceType' | 'name' | 'mqttSuffix' | 'priority' | 'wattage' | 'maxDowntimeMinutes' | 'minUptimeMinutes'>, value: boolean) => {
+    const handleCheckboxChange = (field: 'preventDowntime' | 'isNonEssential', value: boolean) => {
         setFormData(prev => ({...prev, [field]: value}));
     };
 
@@ -45,7 +48,9 @@ export const CreateDevicePage = () => {
             name: formData.name,
             mqttPrefix: `${user?.username}-${formData.mqttSuffix}`,
             deviceType: formData.deviceType,
-            priority: formData.priority,
+            provider: formData.provider,
+            isNonEssential: isMonitor ? false : formData.isNonEssential,
+            priority: isMonitor ? 0 : formData.priority,
             wattage: isMonitor ? 0 : formData.wattage,
             preventDowntime: isMonitor ? false : formData.preventDowntime,
             maxDowntimeMinutes: isMonitor ? 0 : formData.maxDowntimeMinutes,
@@ -78,7 +83,7 @@ export const CreateDevicePage = () => {
         <div className="flex items-center justify-center min-h-screen bg-gray-100">
             <Card className="w-full max-w-md">
                 <CardHeader>
-                    <CardTitle>Add New Device</CardTitle>
+                    <CardTitle>Додати новий пристрій</CardTitle>
                 </CardHeader>
                 <form onSubmit={handleSave}>
                     <DeviceForm
@@ -87,15 +92,16 @@ export const CreateDevicePage = () => {
                         onFieldChange={handleChange}
                         onCheckboxChange={handleCheckboxChange}
                         isMonitor={isMonitor}
-                        hasMonitor={hasMonitor}
+                        hasMonitor={hasPowerMonitor}
+                        hasGridMonitor={hasGridMonitor}
                     />
                     {error && <p className="text-red-600 px-6 pt-2">{error}</p>}
                     <CardFooter className="flex justify-end gap-3">
                         <Button variant="outline" type="button" onClick={() => navigate('/dashboard')}>
-                            Cancel
+                            Скасувати
                         </Button>
                         <Button type="submit" disabled={isSaving}>
-                            {isSaving ? 'Saving...' : 'Add Device'}
+                            {isSaving ? 'Збереження...' : 'Додати пристрій'}
                         </Button>
                     </CardFooter>
                 </form>
