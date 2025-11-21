@@ -1,7 +1,15 @@
 import React from 'react';
 
-const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f97316', '#8b5cf6'];
-const OTHER_COLOR = '#6b7280';
+const COLORS = [
+    '#10b981',
+    '#3b82f6',
+    '#8b5cf6',
+    '#6366f1',
+    '#0ea5e9',
+    '#a855f7',
+    '#22c55e',
+];
+const OTHER_COLOR = '#64748b';
 const UNUSED_COLOR = '#e5e7eb';
 
 export interface DonutSegment {
