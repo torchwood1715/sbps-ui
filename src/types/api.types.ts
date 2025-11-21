@@ -91,3 +91,9 @@ export interface ApiErrorResponse {
     message?: string;
 }
 
+export interface BlackoutStats {
+    isBlackout: boolean;
+    consumedWattHours: number;
+    durationSeconds: number;
+}
+

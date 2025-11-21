@@ -16,6 +16,7 @@ import {LiveUsageGraph} from '@/components/ui/LiveUsageGraph';
 import type {
     AllStatusesResponse,
     ApiErrorResponse,
+    BlackoutStats,
     Device,
     DeviceStatus,
     DeviceStatusUpdate,
@@ -49,6 +50,7 @@ export const DashboardPage = () => {
         : true;
     const isVacationMode = settings?.isVacationModeEnabled ?? false;
     const isPowerSaveMode = isVacationMode || !isGridAvailable;
+    const [blackoutStats, setBlackoutStats] = useState<BlackoutStats | null>(null);
 
     const updateDeviceState = (update: DeviceStatusUpdate) => {
         setDevices((prevDevices) =>
@@ -165,6 +167,22 @@ export const DashboardPage = () => {
     }, [fetchData]);
 
     useEffect(() => {
+        const fetchStats = async () => {
+            if (!localStorage.getItem('token')) return;
+            try {
+                const statsResponse = await apiClient.get<BlackoutStats>('/api/control/system-stats');
+                setBlackoutStats(statsResponse.data);
+            } catch (e) {
+                console.warn("Failed to update system stats", e);
+            }
+        };
+
+        fetchStats();
+        const intervalId = setInterval(fetchStats, 120000);
+        return () => clearInterval(intervalId);
+    }, []);
+
+    useEffect(() => {
         if (!user?.username) return;
 
         const token = localStorage.getItem('token');
@@ -260,6 +278,17 @@ export const DashboardPage = () => {
                 ),
             );
         }
+    };
+
+    const formatDuration = (seconds: number) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        return `${h} год ${m} хв`;
+    };
+
+    const formatEnergy = (wh: number) => {
+        if (wh >= 1000) return `${(wh / 1000).toFixed(2)} кВт·год`;
+        return `${wh.toFixed(0)} Вт·год`;
     };
 
     const renderEmptyState = () => (
@@ -513,22 +542,39 @@ export const DashboardPage = () => {
             </header>
 
             {isPowerSaveMode && (
-                <div className={`p-4 mb-4 flex items-center gap-3 rounded-lg ${
+                <div className={`p-4 mb-4 rounded-lg border ${
                     isVacationMode
                         ? 'bg-blue-100 border-blue-400 text-blue-700'
                         : 'bg-red-100 border-red-400 text-red-700'
                 }`}>
-                    {isVacationMode ? <Moon className="h-5 w-5"/> : <AlertTriangle className="h-5 w-5"/>}
-                    <div>
-                        <h4 className="font-bold">
-                            {isVacationMode ? 'Режим "Відпустка" активовано' : 'Режим "Блекаут" активовано'}
-                        </h4>
-                        <p className="text-sm">
-                            {isVacationMode
-                                ? 'Система працює в режимі енергозбереження. Не життєво важливі пристрої вимкнено.'
-                                : 'Немає живлення від мережі. Система працює від батареї з обмеженою потужністю.'}
-                        </p>
+                    <div className="flex items-center gap-3">
+                        {isVacationMode ? <Moon className="h-5 w-5"/> : <AlertTriangle className="h-5 w-5"/>}
+                        <div>
+                            <h4 className="font-bold">
+                                {isVacationMode ? 'Режим "Відпустка" активовано' : 'Режим "Блекаут" активовано'}
+                            </h4>
+                            <p className="text-sm">
+                                {isVacationMode
+                                    ? 'Система працює в режимі енергозбереження. Не життєво важливі пристрої вимкнено.'
+                                    : 'Немає живлення від мережі. Система працює від батареї з обмеженою потужністю.'}
+                            </p>
+                        </div>
                     </div>
+
+                    {blackoutStats && blackoutStats.isBlackout && (
+                        <div className={`mt-2 pl-8 grid grid-cols-2 gap-4 text-sm border-t pt-2 ${
+                            isVacationMode ? 'border-blue-200' : 'border-red-200'
+                        }`}>
+                            <div>
+                                <span
+                                    className="font-semibold">Час без світла:</span> {formatDuration(blackoutStats.durationSeconds)}
+                            </div>
+                            <div>
+                                <span
+                                    className="font-semibold">Спожито:</span> {formatEnergy(blackoutStats.consumedWattHours)}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
