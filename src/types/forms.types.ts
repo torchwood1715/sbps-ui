@@ -5,7 +5,7 @@ export interface DeviceFormData {
     mqttSuffix?: string; // used for Create page; settings uses separate state
     deviceType: DeviceType;
     provider: DeviceProvider;
-    isNonEssential: boolean;
+    nonEssential: boolean;
     priority: number;
     wattage: number;
     preventDowntime: boolean;

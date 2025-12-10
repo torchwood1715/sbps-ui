@@ -9,7 +9,7 @@ export interface Device {
     mqttPrefix: string;
     deviceType: DeviceType;
     provider: DeviceProvider;
-    isNonEssential: boolean;
+    nonEssential: boolean;
     priority: number;
     wattage: number;
     username: string;
@@ -25,7 +25,7 @@ export interface DeviceRequestDTO {
     mqttPrefix: string;
     deviceType: DeviceType;
     provider: DeviceProvider;
-    isNonEssential: boolean;
+    nonEssential: boolean;
     priority: number;
     wattage: number;
     preventDowntime: boolean;
@@ -39,7 +39,7 @@ export interface DeviceResponseDTO {
     mqttPrefix: string;
     deviceType: DeviceType;
     provider: DeviceProvider;
-    isNonEssential: boolean;
+    nonEssential: boolean;
     priority: number;
     wattage: number;
     username: string;
