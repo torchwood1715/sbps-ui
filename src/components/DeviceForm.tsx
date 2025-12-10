@@ -161,7 +161,7 @@ export const DeviceForm: React.FC<DeviceFormProps> = ({
             <div className="flex items-center space-x-2 rounded-md border p-4">
                 <Checkbox
                     id="isNonEssential"
-                    checked={!isMonitor && formData.isNonEssential}
+                    checked={!isMonitor && formData.nonEssential}
                     onCheckedChange={(checked) => onCheckboxChange('isNonEssential', !!checked)}
                     disabled={isMonitor}
                 />
