@@ -561,7 +561,7 @@ export const DashboardPage = () => {
                         </div>
                     </div>
 
-                    {blackoutStats && blackoutStats.isBlackout && (
+                    {blackoutStats && blackoutStats.blackout && (
                         <div className={`mt-2 pl-8 grid grid-cols-2 gap-4 text-sm border-t pt-2 ${
                             isVacationMode ? 'border-blue-200' : 'border-red-200'
                         }`}>
