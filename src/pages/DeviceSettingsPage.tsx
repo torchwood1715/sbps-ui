@@ -73,7 +73,7 @@ export const DeviceSettingsPage = () => {
         setFormData(prev => ({...prev, [field]: value}));
     };
 
-    const handleCheckboxChange = (field: 'preventDowntime' | 'isNonEssential', value: boolean) => {
+    const handleCheckboxChange = (field: 'preventDowntime' | 'nonEssential', value: boolean) => {
         setFormData(prev => ({...prev, [field]: value}));
     };
 

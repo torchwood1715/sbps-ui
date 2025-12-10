@@ -12,7 +12,7 @@ export interface DeviceFormProps {
     username?: string | null;
     formData: DeviceFormData;
     onFieldChange: (field: keyof DeviceFormData, value: string | number | DeviceProvider) => void;
-    onCheckboxChange: (field: 'preventDowntime' | 'isNonEssential', value: boolean) => void;
+    onCheckboxChange: (field: 'preventDowntime' | 'nonEssential', value: boolean) => void;
     isMonitor: boolean;
     hasMonitor: boolean;
     hasGridMonitor: boolean;
@@ -160,13 +160,13 @@ export const DeviceForm: React.FC<DeviceFormProps> = ({
 
             <div className="flex items-center space-x-2 rounded-md border p-4">
                 <Checkbox
-                    id="isNonEssential"
+                    id="nonEssential"
                     checked={!isMonitor && formData.nonEssential}
-                    onCheckedChange={(checked) => onCheckboxChange('isNonEssential', !!checked)}
+                    onCheckedChange={(checked) => onCheckboxChange('nonEssential', !!checked)}
                     disabled={isMonitor}
                 />
                 <div className="space-y-1 leading-none">
-                    <Label htmlFor="isNonEssential" className={isMonitor ? 'text-muted-foreground' : ''}>
+                    <Label htmlFor="nonEssential" className={isMonitor ? 'text-muted-foreground' : ''}>
                         Не життєво важливий пристрій
                     </Label>
                     <p className="text-xs text-muted-foreground">
